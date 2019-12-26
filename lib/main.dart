@@ -62,7 +62,7 @@ class _MyHomePageState extends State<MyHomePage> {
     var offset = _controller.offset;
     if(offset < _criticalPos){//启动动画
       _controller
-      .animateTo(0,duration: Duration(milliseconds: 2000),curve: Curves.linear)
+      .animateTo(offset+10,duration: Duration(milliseconds: 2000),curve: Curves.linear)
       .whenComplete((){
          _controller.animateTo(
           -10,
@@ -75,6 +75,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void onPointMove(PointerMoveEvent event){
     
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +103,7 @@ class _MyHomePageState extends State<MyHomePage> {
         },
         itemCount: _counter,
         controller: _controller,
-      )) ])
+      ))])
     );
   }
 }
