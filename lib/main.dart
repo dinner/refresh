@@ -25,6 +25,8 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 5;
   ScrollController _controller = new ScrollController();
+  double _criticalPos = -60;
+  String _prompt = '下拉刷新';
 
   void _incrementCounter() {
     setState(() {
@@ -35,7 +37,19 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState(){
     super.initState();
-    _controller.addListener(() => print(_controller.offset));
+    _controller.addListener(() { 
+      print(_controller.offset);
+      var offset = _controller.offset;
+      if(offset < _criticalPos){
+        _prompt = '松开刷新';
+      }
+      else{
+        _prompt = '下拉刷新';
+      }
+      setState(() {
+        
+      });
+    });
   }
 
   @override
@@ -44,13 +58,41 @@ class _MyHomePageState extends State<MyHomePage> {
     super.dispose();
   }
 
+  void onPointUp(PointerUpEvent event){
+    var offset = _controller.offset;
+    if(offset < _criticalPos){//启动动画
+      _controller
+      .animateTo(0,duration: Duration(milliseconds: 2000),curve: Curves.linear)
+      .whenComplete((){
+         _controller.animateTo(
+          -10,
+          duration: Duration(milliseconds: 100),
+          curve: Curves.linear);
+      });
+    }
+  }
+
+  void onPointMove(PointerMoveEvent event){
+    
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(''),
       ),
-      body:ListView.builder(
+      body:Stack(
+        alignment: AlignmentDirectional.center,
+        children:<Widget>[
+          Positioned(top:-_controller.offset/2,
+          child:
+          Text(_prompt,style: TextStyle(color: Colors.black),textAlign: TextAlign.center,),),
+      Listener(
+        onPointerUp: onPointUp,
+        onPointerMove: onPointMove,
+        child:
+      ListView.builder(
         physics: AlwaysScrollableScrollPhysics(),
         itemBuilder: (cot,index){
           return ListTile(
@@ -60,7 +102,7 @@ class _MyHomePageState extends State<MyHomePage> {
         },
         itemCount: _counter,
         controller: _controller,
-      ) 
+      )) ])
     );
   }
 }
