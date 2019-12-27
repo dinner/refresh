@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'Utils.dart';
 
 void main() => runApp(MyApp());
 
@@ -30,8 +31,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   int _counter = 5;
   ScrollController _controller = new ScrollController();
   double _criticalPos = -80;
+  double _hideOffset = 35;
   AnimationController ac;
   RefreshStatus refStatus = RefreshStatus.DropBiggerThanCritical;
+
+  DateTime promptTime=DateTime.now();//刷新提示展示的时间
+  bool _isFirstRefresh = true;
 
   void _incrementCounter() {
     setState(() {
@@ -83,6 +88,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
+  void onPointDown(PointerDownEvent event){
+    promptTime = DateTime.now();
+  }
+
   void onPointMove(PointerMoveEvent event){
     var offset = _controller.offset;
     if(offset < _criticalPos){
@@ -101,20 +110,27 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     switch(status){
       case RefreshStatus.DropBiggerThanCritical:{
         wid = Container(
-          color: Colors.white,
+          color: Colors.transparent,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
               Image.asset('asserts/dropDown.png',width: 24,height: 24),
-              Text('下拉刷新')
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                Text('下拉刷新'),
+                Text(
+                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
+                )
+              ],)
             ],
           ),
         );
       }break;
       case RefreshStatus.DropOffControll:{
         wid = Container(
-          color: Colors.white,
+          color: Colors.transparent,
           child:  Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -127,23 +143,37 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   height: 24,
                   child:
               CircularProgressIndicator(
-                valueColor:new AlwaysStoppedAnimation<Color>(Colors.blue),
+                valueColor:new AlwaysStoppedAnimation<Color>(Colors.black),
                 strokeWidth:3,
               ))),
-              Text('正在刷新，请稍候')
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                Text('正在刷新，请稍候'),
+                Text(
+                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
+                )
+              ],)
             ],
           ),
         );
       }break;
       case RefreshStatus.DropSmallerCritical:{
           wid = Container(
-            color: Colors.white,
+            color: Colors.transparent,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
               Image.asset('asserts/dropUp.png',width: 24,height: 24),
-              Text('松开刷新')
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                Text('松开刷新'),
+                Text(
+                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
+                )
+              ],)
             ],
           ),
         );
@@ -154,6 +184,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    if(_isFirstRefresh){
+      _isFirstRefresh = _isFirstRefresh;
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text('刷新'),
@@ -162,13 +195,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       body:Stack(
         alignment: AlignmentDirectional.center,
         children:<Widget>[
-          Positioned(top:-_controller.offset/2-25,
+          Positioned(
+            top:_controller.offset!=null?-_controller.offset/2-_hideOffset:0,
+            // top:0,
           child:
           widgetHeader(refStatus)),
           // Text(_prompt,style: TextStyle(color: Colors.black),textAlign: TextAlign.center,),),
       Listener(
         onPointerUp: onPointUp,
         onPointerMove: onPointMove,
+        onPointerDown: onPointDown,
         child:
       ListView.builder(
         physics: AlwaysScrollableScrollPhysics(),
