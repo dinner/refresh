@@ -38,6 +38,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   DateTime promptTime=DateTime.now();//刷新提示展示的时间
   bool _isFirstRefresh = true;
 
+  ScrollPhysics physics;
+  double _headerMinHeight=50;
+
   void _incrementCounter() {
     setState(() {
       _counter+=20;
@@ -58,28 +61,24 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  void onPointUp(PointerUpEvent event){
+  void onPointUp(PointerUpEvent event)async{
     var offset = _controller.offset;
     if(offset < _criticalPos){//启动动画
       setState(() {
         refStatus = RefreshStatus.DropOffControll;
+        physics = NeverScrollableScrollPhysics();
       });
 
-      _controller
-      .animateTo(offset+1,duration: Duration(milliseconds: 2000),curve: Curves.linear)
-      .whenComplete((){
-        _controller
-          .animateTo(0,duration: Duration(milliseconds: 100),curve: Curves.linear)
-          .whenComplete((){
-            setState(() {
-              refStatus = RefreshStatus.DropBiggerThanCritical;
-            });
-          });
+      await Future.delayed(Duration(milliseconds: 2000),(){
+        setState(() {
+          refStatus = RefreshStatus.DropBiggerThanCritical;
+          physics = AlwaysScrollableScrollPhysics();
+        });
       });
     }
     else{
       _controller
-          .animateTo(0,duration: Duration(milliseconds: 100),curve: Curves.linear)
+          .animateTo(0,duration: Duration(milliseconds: 1000),curve: Curves.linear)
           .whenComplete((){
             setState(() {
               refStatus = RefreshStatus.DropBiggerThanCritical;
@@ -184,6 +183,62 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   final GlobalKey _key = new GlobalKey();
 
+  bool isDrag(){
+    if(_controller.offset < 0){
+      return true;
+    }
+    else{
+      return false;
+    }
+  }
+
+  Widget header(){
+    return Container(
+      padding: EdgeInsets.only(top:0),
+      height: isDrag()==false?0:-_controller.offset<_headerMinHeight?_headerMinHeight:-_controller.offset,
+      width: MediaQuery.of(context).size.width,
+      child: widgetHeader(refStatus),
+    );
+  }
+
+  Widget getWid(){
+    return Listener(
+      key:_key,
+      onPointerDown: onPointDown,
+      onPointerMove: onPointMove,
+      onPointerUp: onPointUp,
+      child:
+      Container(
+        width: MediaQuery.of(context).size.width,
+        height: MediaQuery.of(context).size.height,
+        child:
+    CustomScrollView(
+      controller: _controller,
+      physics: physics,
+      slivers: <Widget>[
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (cont,index){
+              return header();
+            }
+            ,childCount: 1
+          ),
+        ),
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (cont,index){
+              return ListTile(
+                title: Text('我是标题'),
+                subtitle: Text('我是子标题'),
+              );
+            }
+            ,childCount: 50
+          ),
+        )
+      ],
+    )));
+  }
+
   @override
   Widget build(BuildContext context) {
     if(_isFirstRefresh){
@@ -194,30 +249,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         title: Text('刷新'),
         elevation: 0.0,
       ),
-      body:Stack(
-        alignment: AlignmentDirectional.center,
-        children:<Widget>[
-          Positioned(
-            top:0,
-          child:
-          widgetHeader(refStatus)),
-      Listener(
-        key: _key,
-        onPointerUp: onPointUp,
-        onPointerMove: onPointMove,
-        onPointerDown: onPointDown,
-        child:
-      ListView.builder(
-        physics: AlwaysScrollableScrollPhysics(),
-        itemBuilder: (cot,index){
-          return ListTile(
-            title: Text('我是元素'),
-            subtitle: Text('我是子元素'),
-          );
-        },
-        itemCount: _counter,
-        controller: _controller,
-      ))])
+    body: getWid(),
     );
   }
 }
