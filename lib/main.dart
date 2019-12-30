@@ -182,6 +182,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     return wid;
   }
 
+  final GlobalKey _key = new GlobalKey();
+
   @override
   Widget build(BuildContext context) {
     if(_isFirstRefresh){
@@ -196,12 +198,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         alignment: AlignmentDirectional.center,
         children:<Widget>[
           Positioned(
-            top:_controller.offset!=null?-_controller.offset/2-_hideOffset:0,
-            // top:0,
+            top:0,
           child:
           widgetHeader(refStatus)),
-          // Text(_prompt,style: TextStyle(color: Colors.black),textAlign: TextAlign.center,),),
       Listener(
+        key: _key,
         onPointerUp: onPointUp,
         onPointerMove: onPointMove,
         onPointerDown: onPointDown,
