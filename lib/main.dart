@@ -26,13 +26,17 @@ class MyHomePage extends StatefulWidget {
 enum RefreshStatus{
   DropSmallerCritical,DropOffControll,DropBiggerThanCritical
 }
+enum GestureStatus{
+  TouchNone,TouchDown,TouchMove,TouchUp
+}
 
 class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin{
   int _counter = 5;
   ScrollController _controller = new ScrollController();
   double _criticalPos = -80;
   double _hideOffset = 35;
-  AnimationController ac;
+  AnimationController _animateControl;
+  Animation<double> _animat;
   RefreshStatus refStatus = RefreshStatus.DropBiggerThanCritical;
 
   DateTime promptTime=DateTime.now();//刷新提示展示的时间
@@ -40,6 +44,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   ScrollPhysics physics;
   double _headerMinHeight=50;
+  double _headerHeight;
+  GestureStatus _gesuture = GestureStatus.TouchNone;
 
   void _incrementCounter() {
     setState(() {
@@ -62,6 +68,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   void onPointUp(PointerUpEvent event)async{
+    print('onPointUp');
+    _gesuture = GestureStatus.TouchUp;
     var offset = _controller.offset;
     if(offset < _criticalPos){//启动动画
       setState(() {
@@ -84,14 +92,29 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               refStatus = RefreshStatus.DropBiggerThanCritical;
             });
           });
+      // _animateControl = new AnimationController(
+      //   duration: const Duration(milliseconds:3000),vsync: this);
+      // _animat = Tween(begin: _controller.offset,end: 0)
+      // .animate(_animateControl)
+      // ..addListener((){
+      //   setState(() {
+      //     if (_animat.status != AnimationStatus.dismissed) {
+
+      //     }
+      //   });
+      // });
+      // _animateControl.forward();
     }
   }
 
   void onPointDown(PointerDownEvent event){
+    _gesuture = GestureStatus.TouchDown;
     promptTime = DateTime.now();
   }
 
   void onPointMove(PointerMoveEvent event){
+    _gesuture = GestureStatus.TouchMove;
+    print('onPointMove');
     var offset = _controller.offset;
     if(offset < _criticalPos){
       refStatus = RefreshStatus.DropSmallerCritical;
@@ -109,6 +132,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     switch(status){
       case RefreshStatus.DropBiggerThanCritical:{
         wid = Container(
+          height: _headerMinHeight,
           color: Colors.transparent,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -129,6 +153,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       }break;
       case RefreshStatus.DropOffControll:{
         wid = Container(
+          height: _headerMinHeight,
           color: Colors.transparent,
           child:  Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -159,6 +184,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       }break;
       case RefreshStatus.DropSmallerCritical:{
           wid = Container(
+          height: _headerMinHeight,
             color: Colors.transparent,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -183,7 +209,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   final GlobalKey _key = new GlobalKey();
 
-  bool isDrag(){
+  bool _isDrag(){
     if(_controller.offset < 0){
       return true;
     }
@@ -192,10 +218,31 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
+  double getHeaderHeight(){
+    bool isDrag = _isDrag();
+    if(isDrag == false){
+      return 0;
+    }
+    else{
+      return -_controller.offset<_headerMinHeight?_headerMinHeight:-_controller.offset;
+    }
+  }
+
+  double getHeaderOffset(){
+    // bool isDrag = _isDrag();
+    // if(isDrag == false){
+    //   return -_headerMinHeight;
+    // }
+    // else{
+    //   print('headerOffset:${-_headerMinHeight-_controller.offset}');
+    //   return -_headerMinHeight-_controller.offset;
+    // }
+  }
+
   Widget header(){
     return Container(
       padding: EdgeInsets.only(top:0),
-      height: isDrag()==false?0:-_controller.offset<_headerMinHeight?_headerMinHeight:-_controller.offset,
+      height:getHeaderHeight(), 
       width: MediaQuery.of(context).size.width,
       child: widgetHeader(refStatus),
     );
@@ -209,6 +256,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       onPointerUp: onPointUp,
       child:
       Container(
+        padding: EdgeInsets.only(top:0),
         width: MediaQuery.of(context).size.width,
         height: MediaQuery.of(context).size.height,
         child:
