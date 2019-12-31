@@ -23,11 +23,14 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-enum RefreshStatus{
-  DropSmallerCritical,DropOffControll,DropBiggerThanCritical
+enum DragStatus{
+  DropSmallerCritical,DropOffControll,DropBiggerThanCritical,DropDone
 }
 enum GestureStatus{
   TouchNone,TouchDown,TouchMove,TouchUp
+}
+enum RefreshStatus{
+  none,drag,refresh,done,back
 }
 
 class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin{
@@ -37,7 +40,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   double _hideOffset = 35;
   AnimationController _animateControl;
   Animation<double> _animat;
-  RefreshStatus refStatus = RefreshStatus.DropBiggerThanCritical;
+  DragStatus _dragStatus = DragStatus.DropBiggerThanCritical;
 
   DateTime promptTime=DateTime.now();//刷新提示展示的时间
   bool _isFirstRefresh = true;
@@ -46,6 +49,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   double _headerMinHeight=50;
   double _headerHeight;
   GestureStatus _gesuture = GestureStatus.TouchNone;
+  RefreshStatus _refresh = RefreshStatus.none;
 
   void _incrementCounter() {
     setState(() {
@@ -59,6 +63,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _controller.addListener(() { 
       print(_controller.offset);
     });
+
+    _animateControl = AnimationController(duration: Duration(seconds: 2),vsync: this);
   }
 
   @override
@@ -70,18 +76,57 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   void onPointUp(PointerUpEvent event)async{
     print('onPointUp');
     _gesuture = GestureStatus.TouchUp;
+    _refresh = RefreshStatus.drag;
     var offset = _controller.offset;
     if(offset < _criticalPos){//启动动画
       setState(() {
-        refStatus = RefreshStatus.DropOffControll;
+        _dragStatus = DragStatus.DropOffControll;
         physics = NeverScrollableScrollPhysics();
       });
-
-      await Future.delayed(Duration(milliseconds: 2000),(){
+      await Future.delayed(Duration(milliseconds: 2000),()async{
+        print('刷新完成');
+        _refresh = RefreshStatus.done;
+        _dragStatus = DragStatus.DropDone;
         setState(() {
-          refStatus = RefreshStatus.DropBiggerThanCritical;
-          physics = AlwaysScrollableScrollPhysics();
+          
         });
+
+        // await Future.delayed(Duration(seconds:2),(){
+        //   _refresh = RefreshStatus.back;
+        // //   _animat = Tween<double>(begin: offset,end:0).animate(_animateControl)
+        // // ..addListener((){
+        // //   setState(() {
+            
+        // //   });
+        // // })
+        // // ..addStatusListener((status){
+        // //   if(status == AnimationStatus.completed){
+        // //     setState(() {
+        // //       _refresh = RefreshStatus.none;
+        // //      _dragStatus = DragStatus.DropBiggerThanCritical;
+        // //      physics = AlwaysScrollableScrollPhysics();
+        // //     });
+        // //   }
+        // // });
+        // // _animateControl.forward();
+        // });
+
+        // _animat = Tween<double>(begin: offset,end:0).animate(_animateControl)
+        // ..addListener((){
+        //   setState(() {
+            
+        //   });
+        // })
+        // ..addStatusListener((status){
+        //   if(status == AnimationStatus.completed){
+        //     setState(() {
+        //       _refresh = RefreshStatus.none;
+        //      _dragStatus = DragStatus.DropBiggerThanCritical;
+        //      physics = AlwaysScrollableScrollPhysics();
+        //     });
+        //   }
+        // });
+        // _animateControl.forward();
       });
     }
     else{
@@ -89,21 +134,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           .animateTo(0,duration: Duration(milliseconds: 1000),curve: Curves.linear)
           .whenComplete((){
             setState(() {
-              refStatus = RefreshStatus.DropBiggerThanCritical;
+              _dragStatus = DragStatus.DropBiggerThanCritical;
             });
           });
-      // _animateControl = new AnimationController(
-      //   duration: const Duration(milliseconds:3000),vsync: this);
-      // _animat = Tween(begin: _controller.offset,end: 0)
-      // .animate(_animateControl)
-      // ..addListener((){
-      //   setState(() {
-      //     if (_animat.status != AnimationStatus.dismissed) {
-
-      //     }
-      //   });
-      // });
-      // _animateControl.forward();
     }
   }
 
@@ -114,23 +147,24 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   void onPointMove(PointerMoveEvent event){
     _gesuture = GestureStatus.TouchMove;
+    _refresh = RefreshStatus.drag;
     print('onPointMove');
     var offset = _controller.offset;
     if(offset < _criticalPos){
-      refStatus = RefreshStatus.DropSmallerCritical;
+      _dragStatus = DragStatus.DropSmallerCritical;
     }
     else{
-      refStatus = RefreshStatus.DropBiggerThanCritical;
+      _dragStatus = DragStatus.DropBiggerThanCritical;
     }
     setState(() {
       
     });
   }
 
-  Widget widgetHeader(RefreshStatus status){
+  Widget widgetHeader(DragStatus status){
     Widget wid;
     switch(status){
-      case RefreshStatus.DropBiggerThanCritical:{
+      case DragStatus.DropBiggerThanCritical:{
         wid = Container(
           height: _headerMinHeight,
           color: Colors.transparent,
@@ -151,7 +185,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         );
       }break;
-      case RefreshStatus.DropOffControll:{
+      case DragStatus.DropOffControll:{
         wid = Container(
           height: _headerMinHeight,
           color: Colors.transparent,
@@ -182,7 +216,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         );
       }break;
-      case RefreshStatus.DropSmallerCritical:{
+      case DragStatus.DropSmallerCritical:{
           wid = Container(
           height: _headerMinHeight,
             color: Colors.transparent,
@@ -195,6 +229,27 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                 Text('松开刷新'),
+                Text(
+                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
+                )
+              ],)
+            ],
+          ),
+        );
+      }break;
+      case DragStatus.DropDone:{
+        wid = Container(
+          height: _headerMinHeight,
+            color: Colors.transparent,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Image.asset('asserts/finish.png',width: 24,height: 24),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                Text('刷新完成'),
                 Text(
                   Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
                 )
@@ -219,24 +274,25 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   double getHeaderHeight(){
-    bool isDrag = _isDrag();
-    if(isDrag == false){
-      return 0;
-    }
-    else{
-      return -_controller.offset<_headerMinHeight?_headerMinHeight:-_controller.offset;
-    }
-  }
-
-  double getHeaderOffset(){
     // bool isDrag = _isDrag();
     // if(isDrag == false){
-    //   return -_headerMinHeight;
+    //   return 0;
     // }
     // else{
-    //   print('headerOffset:${-_headerMinHeight-_controller.offset}');
-    //   return -_headerMinHeight-_controller.offset;
+    //   return -_controller.offset<_headerMinHeight?_headerMinHeight:-_controller.offset;
     // }
+    if(_refresh == RefreshStatus.drag){
+      return -_controller.offset;
+    }
+    else if(_refresh == RefreshStatus.done){
+      return -_controller.offset;
+    }
+    else if(_refresh == RefreshStatus.back){
+      return -_animat.value;
+    }
+    else{
+      return 0;
+    }
   }
 
   Widget header(){
@@ -244,7 +300,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       padding: EdgeInsets.only(top:0),
       height:getHeaderHeight(), 
       width: MediaQuery.of(context).size.width,
-      child: widgetHeader(refStatus),
+      child: widgetHeader(_dragStatus),
     );
   }
 
