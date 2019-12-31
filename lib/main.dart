@@ -23,12 +23,6 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-enum DragStatus{
-  DropSmallerCritical,DropOffControll,DropBiggerThanCritical,DropDone
-}
-enum GestureStatus{
-  TouchNone,TouchDown,TouchMove,TouchUp
-}
 enum RefreshStatus{
   none,drag,refresh,done,back
 }
@@ -40,16 +34,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   double _hideOffset = 35;
   AnimationController _animateControl;
   Animation<double> _animat;
-  DragStatus _dragStatus = DragStatus.DropBiggerThanCritical;
 
   DateTime promptTime=DateTime.now();//刷新提示展示的时间
   bool _isFirstRefresh = true;
 
   ScrollPhysics physics;
   double _headerMinHeight=50;
-  double _headerHeight;
-  GestureStatus _gesuture = GestureStatus.TouchNone;
   RefreshStatus _refresh = RefreshStatus.none;
+  double _refreshOffset;
 
   void _incrementCounter() {
     setState(() {
@@ -64,7 +56,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       print(_controller.offset);
     });
 
-    _animateControl = AnimationController(duration: Duration(seconds: 2),vsync: this);
+    _animateControl = AnimationController(duration: Duration(milliseconds:300 ),vsync: this);
   }
 
   @override
@@ -75,58 +67,39 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   void onPointUp(PointerUpEvent event)async{
     print('onPointUp');
-    _gesuture = GestureStatus.TouchUp;
-    _refresh = RefreshStatus.drag;
+    _refresh = RefreshStatus.refresh;
     var offset = _controller.offset;
     if(offset < _criticalPos){//启动动画
       setState(() {
-        _dragStatus = DragStatus.DropOffControll;
         physics = NeverScrollableScrollPhysics();
       });
       await Future.delayed(Duration(milliseconds: 2000),()async{
         print('刷新完成');
+        _refreshOffset = -offset;
         _refresh = RefreshStatus.done;
-        _dragStatus = DragStatus.DropDone;
         setState(() {
           
         });
 
-        // await Future.delayed(Duration(seconds:2),(){
-        //   _refresh = RefreshStatus.back;
-        // //   _animat = Tween<double>(begin: offset,end:0).animate(_animateControl)
-        // // ..addListener((){
-        // //   setState(() {
+        await Future.delayed(Duration(seconds:1),(){
+          _refresh = RefreshStatus.back;
+          _animat = Tween<double>(begin: _refreshOffset,end:0).animate(_animateControl)
+        ..addListener((){
+          setState(() {
             
-        // //   });
-        // // })
-        // // ..addStatusListener((status){
-        // //   if(status == AnimationStatus.completed){
-        // //     setState(() {
-        // //       _refresh = RefreshStatus.none;
-        // //      _dragStatus = DragStatus.DropBiggerThanCritical;
-        // //      physics = AlwaysScrollableScrollPhysics();
-        // //     });
-        // //   }
-        // // });
-        // // _animateControl.forward();
-        // });
-
-        // _animat = Tween<double>(begin: offset,end:0).animate(_animateControl)
-        // ..addListener((){
-        //   setState(() {
-            
-        //   });
-        // })
-        // ..addStatusListener((status){
-        //   if(status == AnimationStatus.completed){
-        //     setState(() {
-        //       _refresh = RefreshStatus.none;
-        //      _dragStatus = DragStatus.DropBiggerThanCritical;
-        //      physics = AlwaysScrollableScrollPhysics();
-        //     });
-        //   }
-        // });
-        // _animateControl.forward();
+          });
+        })
+        ..addStatusListener((status){
+          if(status == AnimationStatus.completed){
+            setState(() {
+              _refresh = RefreshStatus.none;
+             physics = AlwaysScrollableScrollPhysics();
+             _animateControl.reset();
+            });
+          }
+        });
+        _animateControl.forward();
+        });
       });
     }
     else{
@@ -134,60 +107,31 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           .animateTo(0,duration: Duration(milliseconds: 1000),curve: Curves.linear)
           .whenComplete((){
             setState(() {
-              _dragStatus = DragStatus.DropBiggerThanCritical;
             });
           });
     }
   }
 
   void onPointDown(PointerDownEvent event){
-    _gesuture = GestureStatus.TouchDown;
     promptTime = DateTime.now();
   }
 
   void onPointMove(PointerMoveEvent event){
-    _gesuture = GestureStatus.TouchMove;
     _refresh = RefreshStatus.drag;
     print('onPointMove');
-    var offset = _controller.offset;
-    if(offset < _criticalPos){
-      _dragStatus = DragStatus.DropSmallerCritical;
-    }
-    else{
-      _dragStatus = DragStatus.DropBiggerThanCritical;
-    }
     setState(() {
       
     });
   }
 
-  Widget widgetHeader(DragStatus status){
-    Widget wid;
+  Widget widgetHeader(RefreshStatus status){
+    String img;
+    String prompt;
+
     switch(status){
-      case DragStatus.DropBiggerThanCritical:{
-        wid = Container(
-          height: _headerMinHeight,
-          color: Colors.transparent,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Image.asset('asserts/dropDown.png',width: 24,height: 24),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                Text('下拉刷新'),
-                Text(
-                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
-                )
-              ],)
-            ],
-          ),
-        );
-      }break;
-      case DragStatus.DropOffControll:{
-        wid = Container(
-          height: _headerMinHeight,
+      case RefreshStatus.refresh:{
+        return Container(
+          height: getHeaderHeight(),
           color: Colors.transparent,
           child:  Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -216,49 +160,39 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         );
       }break;
-      case DragStatus.DropSmallerCritical:{
-          wid = Container(
-          height: _headerMinHeight,
-            color: Colors.transparent,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Image.asset('asserts/dropUp.png',width: 24,height: 24),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                Text('松开刷新'),
-                Text(
-                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
-                )
-              ],)
-            ],
-          ),
-        );
+      case RefreshStatus.none:{
+        img = 'asserts/dropDown.png';
+        prompt = '下拉刷新';
       }break;
-      case DragStatus.DropDone:{
-        wid = Container(
-          height: _headerMinHeight,
-            color: Colors.transparent,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Image.asset('asserts/finish.png',width: 24,height: 24),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                Text('刷新完成'),
-                Text(
-                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
-                )
-              ],)
-            ],
-          ),
-        );
+      case RefreshStatus.drag:{
+        img = _controller.offset>_criticalPos?'asserts/dropUp.png':'asserts/dropDown.png';
+        prompt = _controller.offset>_criticalPos?'下拉刷新':'松开刷新';
+      }break;
+      case RefreshStatus.back:
+      case RefreshStatus.done:{
+        img = 'asserts/finish.png';
+        prompt = '刷新完成';
       }break;
     }
+    Widget wid = Container(
+      height: getHeaderHeight(),
+      color: Colors.transparent,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Image.asset(img,width: 24,height: 24),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+            Text(prompt),
+            Text(
+              Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
+            )
+          ],)
+        ],
+      ),
+    );
     return wid;
   }
 
@@ -274,21 +208,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   double getHeaderHeight(){
-    // bool isDrag = _isDrag();
-    // if(isDrag == false){
-    //   return 0;
-    // }
-    // else{
-    //   return -_controller.offset<_headerMinHeight?_headerMinHeight:-_controller.offset;
-    // }
-    if(_refresh == RefreshStatus.drag){
+    if(_refresh == RefreshStatus.drag||_refresh == RefreshStatus.refresh){
       return -_controller.offset;
     }
     else if(_refresh == RefreshStatus.done){
-      return -_controller.offset;
+      return _refreshOffset;
     }
     else if(_refresh == RefreshStatus.back){
-      return -_animat.value;
+      return _animat.value;
     }
     else{
       return 0;
@@ -300,7 +227,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       padding: EdgeInsets.only(top:0),
       height:getHeaderHeight(), 
       width: MediaQuery.of(context).size.width,
-      child: widgetHeader(_dragStatus),
+      child: widgetHeader(_refresh),
     );
   }
 
