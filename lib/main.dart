@@ -31,7 +31,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   int _counter = 5;
   ScrollController _controller = new ScrollController();
   double _criticalPos = -80;
-  double _hideOffset = 35;
   AnimationController _animateControl;
   Animation<double> _animat;
 
@@ -39,7 +38,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   bool _isFirstRefresh = true;
 
   ScrollPhysics physics;
-  double _headerMinHeight=50;
   RefreshStatus _refresh = RefreshStatus.none;
   double _refreshOffset;
 
@@ -67,9 +65,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   void onPointUp(PointerUpEvent event)async{
     print('onPointUp');
-    _refresh = RefreshStatus.refresh;
     var offset = _controller.offset;
     if(offset < _criticalPos){//启动动画
+      _refresh = RefreshStatus.refresh;
       setState(() {
         physics = NeverScrollableScrollPhysics();
       });
@@ -103,12 +101,24 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       });
     }
     else{
-      _controller
-          .animateTo(0,duration: Duration(milliseconds: 1000),curve: Curves.linear)
-          .whenComplete((){
-            setState(() {
-            });
+      _refreshOffset = -offset;
+          _refresh = RefreshStatus.back;
+          _animat = Tween<double>(begin: _refreshOffset,end:0).animate(_animateControl)
+        ..addListener((){
+          setState(() {
+            
           });
+        })
+        ..addStatusListener((status){
+          if(status == AnimationStatus.completed){
+            setState(() {
+              _refresh = RefreshStatus.none;
+             physics = AlwaysScrollableScrollPhysics();
+             _animateControl.reset();
+            });
+          }
+        });
+        _animateControl.forward();
     }
   }
 
@@ -131,7 +141,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     switch(status){
       case RefreshStatus.refresh:{
         return Container(
-          height: getHeaderHeight(),
+          // height: getHeaderHeight(),
           color: Colors.transparent,
           child:  Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -160,22 +170,22 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         );
       }break;
+      case RefreshStatus.back:
       case RefreshStatus.none:{
         img = 'asserts/dropDown.png';
         prompt = '下拉刷新';
       }break;
       case RefreshStatus.drag:{
-        img = _controller.offset>_criticalPos?'asserts/dropUp.png':'asserts/dropDown.png';
+        img = _controller.offset>_criticalPos?'asserts/dropDown.png':'asserts/dropUp.png';
         prompt = _controller.offset>_criticalPos?'下拉刷新':'松开刷新';
       }break;
-      case RefreshStatus.back:
       case RefreshStatus.done:{
         img = 'asserts/finish.png';
         prompt = '刷新完成';
       }break;
     }
     Widget wid = Container(
-      height: getHeaderHeight(),
+      // height: getHeaderHeight(),
       color: Colors.transparent,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -224,10 +234,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Widget header(){
     return Container(
-      padding: EdgeInsets.only(top:0),
       height:getHeaderHeight(), 
       width: MediaQuery.of(context).size.width,
-      child: widgetHeader(_refresh),
+      child:FittedBox(
+        fit:BoxFit.none,
+        alignment: Alignment.bottomCenter,
+        child:
+       widgetHeader(_refresh),
+    )
     );
   }
 
