@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'Utils.dart';
 
 void main() => runApp(MyApp());
@@ -51,7 +52,7 @@ enum RefreshStatus{
   back
 }
 
-class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin{
+class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   int _counter                  = 20;
   int maxCount                  = 35;           //最大数
   ScrollController _controller  = new ScrollController();
@@ -65,6 +66,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   Animation<double> _animat;
   ScrollPhysics physics;
   double _refreshOffset;                        //偏移offset记录
+  double rotate;
 
   @override
   void initState(){
@@ -78,6 +80,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     });
 
     _animateControl = AnimationController(duration: Duration(milliseconds:300 ),vsync: this);
+    rotate = 0;
   }
 
   @override
@@ -185,10 +188,19 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
   //手指移动
   void onPointMove(PointerMoveEvent event){
+    print('onPointMove');
     var offset = _controller.offset;
     if(offset < 0){
+      if(offset <= _criticalPos && offset > -100){
+        rotate = (_criticalPos - offset)/20* math.pi;
+      }
+      else if(offset > _criticalPos){
+        rotate = 0;
+      }
+      else{
+        rotate = math.pi;
+      }
       _refresh = RefreshStatus.drag;
-      print('onPointMove');
       setState(() {
         
       });
@@ -198,16 +210,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   Widget widgetHeader(RefreshStatus status){
     String img;
     String prompt;
+    Widget widImg;
 
     switch(status){
       case RefreshStatus.refresh:{
-        return Container(
-          color: Colors.transparent,
-          child:  Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Padding(
+        prompt = '正在刷新，请稍候';
+        widImg = Padding(
                 padding: EdgeInsets.only(right: 10),
                 child:
                 Container(
@@ -217,31 +225,32 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               CircularProgressIndicator(
                 valueColor:new AlwaysStoppedAnimation<Color>(Colors.black),
                 strokeWidth:3,
-              ))),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                Text('正在刷新，请稍候'),
-                Text(
-                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
-                )
-              ],)
-            ],
-          ),
-        );
+              )));
       }break;
       case RefreshStatus.back:
       case RefreshStatus.none:{
         img = 'asserts/dropDown.png';
         prompt = '下拉刷新';
+
+        widImg = Transform.rotate(
+            angle: rotate,
+            child:
+          Image.asset(img,width: 24,height: 24));
       }break;
       case RefreshStatus.drag:{
-        img = _controller.offset>_criticalPos?'asserts/dropDown.png':'asserts/dropUp.png';
+        img = 'asserts/dropDown.png';
         prompt = _controller.offset>_criticalPos?'下拉刷新':'松开刷新';
+
+        widImg = Transform.rotate(
+            angle: rotate,
+            child:
+          Image.asset(img,width: 24,height: 24));
       }break;
       case RefreshStatus.done:{
         img = 'asserts/finish.png';
         prompt = '刷新完成';
+
+        widImg = Image.asset(img,width: 24,height: 24);
       }break;
     }
     Widget wid = Container(
@@ -250,7 +259,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          Image.asset(img,width: 24,height: 24),
+          widImg,
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
