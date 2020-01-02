@@ -23,35 +23,58 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
+/* 
+********
+下拉状态枚举
+********
+*/
 enum RefreshStatus{
-  none,drag,refresh,done,back
+  /*
+    未拖拽
+  */
+  none,
+  /*
+    下拉拖拽中
+  */
+  drag,
+  /*
+    刷新
+  */
+  refresh,
+  /*
+    刷新完毕
+  */
+  done,
+  /*
+    刷新后返回
+  */
+  back
 }
 
 class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin{
-  int _counter = 5;
-  ScrollController _controller = new ScrollController();
-  double _criticalPos = -80;
-  AnimationController _animateControl;
+  int _counter                  = 20;
+  int maxCount                  = 35;           //最大数
+  ScrollController _controller  = new ScrollController();
+  double _criticalPos           = -80;          //下拉最大下拉高度 超过-80则触发请求数据操作
+  DateTime promptTime           = DateTime.now();//刷新提示展示的时间
+  RefreshStatus _refresh        = RefreshStatus.none;
+  bool _isRequestData           = false;        //是否在请求数据
+  bool noMoreData               = false;        //是否还有更多数据
+
+  AnimationController _animateControl;          //下拉返回的动画
   Animation<double> _animat;
-
-  DateTime promptTime=DateTime.now();//刷新提示展示的时间
-  bool _isFirstRefresh = true;
-
   ScrollPhysics physics;
-  RefreshStatus _refresh = RefreshStatus.none;
-  double _refreshOffset;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter+=20;
-    });
-  }
+  double _refreshOffset;                        //偏移offset记录
 
   @override
   void initState(){
     super.initState();
     _controller.addListener(() { 
       print(_controller.offset);
+      if(_controller.position.pixels == 
+        _controller.position.maxScrollExtent){//下滑到最底部
+          loadData();
+        }
     });
 
     _animateControl = AnimationController(duration: Duration(milliseconds:300 ),vsync: this);
@@ -62,76 +85,101 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _controller.dispose();
     super.dispose();
   }
+  //加载数据
+  Future<void> loadData()async{
+    if(!_isRequestData){
+      setState(() {
+        _isRequestData = true;
+      });
+      await Future.delayed(Duration(seconds:2),(){
+        setState(() {
+          _isRequestData = false;
+          if(_counter < maxCount){
+            _counter += 5;
+          }
+          else{
+            noMoreData = true;
+          }
+        });
+      });
+    }
+  }
 
+  //滑动手指抬起
   void onPointUp(PointerUpEvent event)async{
     print('onPointUp');
     var offset = _controller.offset;
-    if(offset < _criticalPos){//启动动画
-      _refresh = RefreshStatus.refresh;
-      setState(() {
-        physics = NeverScrollableScrollPhysics();
-      });
-      await Future.delayed(Duration(milliseconds: 2000),()async{
-        print('刷新完成');
-        _refreshOffset = -offset;
-        _refresh = RefreshStatus.done;
+    if(offset < 0){
+      if(offset < _criticalPos){//启动动画
+        _refresh = RefreshStatus.refresh;
         setState(() {
-          
+          physics = NeverScrollableScrollPhysics();
         });
+        await Future.delayed(Duration(milliseconds: 2000),()async{
+          print('刷新完成');
+          _refreshOffset = -offset;
+          _refresh = RefreshStatus.done;
+          setState(() {
+            
+          });
 
-        await Future.delayed(Duration(seconds:1),(){
-          _refresh = RefreshStatus.back;
-          _animat = Tween<double>(begin: _refreshOffset,end:0).animate(_animateControl)
-        ..addListener((){
-          setState(() {
-            
-          });
-        })
-        ..addStatusListener((status){
-          if(status == AnimationStatus.completed){
+          await Future.delayed(Duration(seconds:1),(){
+            _refresh = RefreshStatus.back;
+            _animat = Tween<double>(begin: _refreshOffset,end:0).animate(_animateControl)
+          ..addListener((){
             setState(() {
-              _refresh = RefreshStatus.none;
-             physics = AlwaysScrollableScrollPhysics();
-             _animateControl.reset();
+              
             });
-          }
-        });
-        _animateControl.forward();
-        });
-      });
-    }
-    else{
-      _refreshOffset = -offset;
-          _refresh = RefreshStatus.back;
-          _animat = Tween<double>(begin: _refreshOffset,end:0).animate(_animateControl)
-        ..addListener((){
-          setState(() {
-            
+          })
+          ..addStatusListener((status){
+            if(status == AnimationStatus.completed){
+              setState(() {
+                _refresh = RefreshStatus.none;
+              physics = AlwaysScrollableScrollPhysics();
+              _animateControl.reset();
+              });
+            }
           });
-        })
-        ..addStatusListener((status){
-          if(status == AnimationStatus.completed){
-            setState(() {
-              _refresh = RefreshStatus.none;
-             physics = AlwaysScrollableScrollPhysics();
-             _animateControl.reset();
-            });
-          }
+          _animateControl.forward();
+          });
         });
-        _animateControl.forward();
+      }
+      else{
+        _refreshOffset = -offset;
+            _refresh = RefreshStatus.back;
+            _animat = Tween<double>(begin: _refreshOffset,end:0).animate(_animateControl)
+          ..addListener((){
+            setState(() {
+              
+            });
+          })
+          ..addStatusListener((status){
+            if(status == AnimationStatus.completed){
+              setState(() {
+                _refresh = RefreshStatus.none;
+              physics = AlwaysScrollableScrollPhysics();
+              _animateControl.reset();
+              });
+            }
+          });
+          _animateControl.forward();
+      }
     }
   }
-
+  //手指按下
   void onPointDown(PointerDownEvent event){
     promptTime = DateTime.now();
   }
-
+  //手指移动
   void onPointMove(PointerMoveEvent event){
-    _refresh = RefreshStatus.drag;
-    print('onPointMove');
-    setState(() {
-      
-    });
+    var offset = _controller.offset;
+    if(offset < 0){
+      _refresh = RefreshStatus.drag;
+      print('onPointMove');
+      setState(() {
+        
+      });
+    }
   }
 
   Widget widgetHeader(RefreshStatus status){
@@ -141,7 +189,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     switch(status){
       case RefreshStatus.refresh:{
         return Container(
-          // height: getHeaderHeight(),
           color: Colors.transparent,
           child:  Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -185,7 +232,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       }break;
     }
     Widget wid = Container(
-      // height: getHeaderHeight(),
       color: Colors.transparent,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -208,20 +254,19 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   final GlobalKey _key = new GlobalKey();
 
-  bool _isDrag(){
-    if(_controller.offset < 0){
-      return true;
-    }
-    else{
-      return false;
-    }
-  }
-
   double getHeaderHeight(){
     if(_refresh == RefreshStatus.drag||_refresh == RefreshStatus.refresh){
+      if(_controller.offset < 0){
       return -_controller.offset;
+      }
+      else{
+        return _controller.offset;
+      }
     }
     else if(_refresh == RefreshStatus.done){
+      if(_refreshOffset<0){
+        return -_refreshOffset;
+      }
       return _refreshOffset;
     }
     else if(_refresh == RefreshStatus.back){
@@ -230,6 +275,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     else{
       return 0;
     }
+  }
+
+  Widget item(){
+     return ListTile(
+        title: Text('我是标题'),
+        subtitle: Text('我是子标题'),
+      );
   }
 
   Widget header(){
@@ -243,6 +295,57 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
        widgetHeader(_refresh),
     )
     );
+  }
+
+  Widget footer(){
+   return _isRequestData==true?
+   noMoreData==false?
+              Container(
+          color: Colors.transparent,
+          child:  Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Padding(
+                padding: EdgeInsets.only(right: 10),
+                child:
+                Container(
+                  width: 24,
+                  height: 24,
+                  child:
+              CircularProgressIndicator(
+                valueColor:new AlwaysStoppedAnimation<Color>(Colors.black),
+                strokeWidth:3,
+              ))),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                Text('正在刷新，请稍候'),
+                Text(
+                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
+                )
+              ],)
+            ],
+          ),
+        ):
+        Container(
+          color: Colors.transparent,
+          child:  Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                Text('没有更多数据了'),
+                Text(
+                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
+                )
+              ],)
+            ],
+          ),
+        )
+        :Container();
   }
 
   Widget getWid(){
@@ -272,12 +375,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (cont,index){
-              return ListTile(
-                title: Text('我是标题'),
-                subtitle: Text('我是子标题'),
-              );
+              return item();
             }
-            ,childCount: 50
+            ,childCount:_counter 
+          ),
+        ),
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (count,index){
+              return footer();
+            }
+            ,childCount: 1
           ),
         )
       ],
@@ -286,9 +394,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    if(_isFirstRefresh){
-      _isFirstRefresh = _isFirstRefresh;
-    }
     return Scaffold(
       appBar: AppBar(
         title: Text('刷新'),
