@@ -105,6 +105,19 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
+  Future<void>refreshData(VoidCallback call)async{
+    if(!_isRequestData){
+      setState(() {
+        _isRequestData = true;
+      });
+      await Future.delayed(Duration(seconds:2),(){
+        _counter = 20;
+        _isRequestData = false;
+        call();
+      });
+    }
+  }
+
   //滑动手指抬起
   void onPointUp(PointerUpEvent event)async{
     print('onPointUp');
@@ -115,7 +128,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         setState(() {
           physics = NeverScrollableScrollPhysics();
         });
-        await Future.delayed(Duration(milliseconds: 2000),()async{
+       await refreshData(()async{
           print('刷新完成');
           _refreshOffset = -offset;
           _refresh = RefreshStatus.done;
@@ -142,7 +155,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           });
           _animateControl.forward();
           });
-        });
+       });
       }
       else{
         _refreshOffset = -offset;
