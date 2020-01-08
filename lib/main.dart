@@ -54,7 +54,7 @@ enum RefreshStatus{
 
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   int _counter                  = 20;
-  int maxCount                  = 35;           //最大数
+  int maxCount                  = 20;           //最大数
   ScrollController _controller  = new ScrollController();
   double _criticalPos           = -80;          //下拉最大下拉高度 超过-80则触发请求数据操作
   DateTime promptTime           = DateTime.now();//刷新提示展示的时间
@@ -127,13 +127,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     var offset = _controller.offset;
     if(offset < 0){
       if(offset < _criticalPos){//启动动画
+        _controller.jumpTo(_criticalPos);
         _refresh = RefreshStatus.refresh;
         setState(() {
           physics = NeverScrollableScrollPhysics();
         });
        await refreshData(()async{
           print('刷新完成');
-          _refreshOffset = -offset;
+          _refreshOffset = _criticalPos;
           _refresh = RefreshStatus.done;
           setState(() {
             
@@ -292,7 +293,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       return _refreshOffset;
     }
     else if(_refresh == RefreshStatus.back){
-      return _animat.value;
+      return -_animat.value;
     }
     else{
       return 0;
