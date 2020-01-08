@@ -37,7 +37,11 @@ enum RefreshStatus{
   /*
     下拉拖拽中
   */
-  drag,
+  pullDown,
+  /*
+    上拉拖拽中
+  */
+  pullUp,
   /*
     刷新
   */
@@ -56,7 +60,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   int _counter                  = 20;
   int maxCount                  = 20;           //最大数
   ScrollController _controller  = new ScrollController();
-  double _criticalPos           = -80;          //下拉最大下拉高度 超过-80则触发请求数据操作
+  double _criticalPos           = 80;          //下拉最大下拉高度 超过-80则触发请求数据操作
   DateTime promptTime           = DateTime.now();//刷新提示展示的时间
   RefreshStatus _refresh        = RefreshStatus.none;
   bool _isRequestData           = false;        //是否在请求数据
@@ -125,9 +129,18 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   void onPointUp(PointerUpEvent event)async{
     print('onPointUp');
     var offset = _controller.offset;
-    if(offset < 0){
-      if(offset < _criticalPos){//启动动画
-        _controller.jumpTo(_criticalPos);
+    var dragOff;
+    if(offset > 0 && offset < _controller.position.maxScrollExtent){
+      return;
+    }
+    if(offset <= 0){
+      dragOff = offset.abs();
+    }
+    else{
+      dragOff = offset-_controller.position.maxScrollExtent;
+    }
+      if(dragOff > _criticalPos){//启动动画
+        _controller.jumpTo(offset<0?-_criticalPos:_criticalPos);
         _refresh = RefreshStatus.refresh;
         setState(() {
           physics = NeverScrollableScrollPhysics();
@@ -140,9 +153,18 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
             
           });
 
+        double begin,end;
+        if(offset < 0){
+          begin = -_criticalPos;
+          end = 0;
+        }
+        else{
+          begin = dragOff+_controller.position.maxScrollExtent;
+          end = _controller.position.maxScrollExtent;
+        }
           await Future.delayed(Duration(seconds:1),(){
             _refresh = RefreshStatus.back;
-            _animat = Tween<double>(begin: _refreshOffset,end:0).animate(_animateControl)
+            _animat = Tween<double>(begin: begin,end:end).animate(_animateControl)
           ..addListener((){
             setState(() {
               
@@ -162,9 +184,17 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
        });
       }
       else{
-        _refreshOffset = -offset;
+        double begin,end;
+        if(offset < 0){
+          begin = offset;
+          end = 0;
+        }
+        else{
+          begin = dragOff+_controller.position.maxScrollExtent;
+          end = _controller.position.maxScrollExtent;
+        }
             _refresh = RefreshStatus.back;
-            _animat = Tween<double>(begin: _refreshOffset,end:0).animate(_animateControl)
+            _animat = Tween<double>(begin: begin,end:end).animate(_animateControl)
           ..addListener((){
             setState(() {
               
@@ -181,7 +211,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
           });
           _animateControl.forward();
       }
-    }
   }
   //手指按下
   void onPointDown(PointerDownEvent event){
@@ -191,28 +220,46 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   void onPointMove(PointerMoveEvent event){
     print('onPointMove');
     var offset = _controller.offset;
-    if(offset < 0){
-      if(offset <= _criticalPos && offset > -100){
-        rotate = (_criticalPos - offset)/20* math.pi;
-      }
-      else if(offset > _criticalPos){
-        rotate = 0;
-      }
-      else{
-        rotate = math.pi;
-      }
-      _refresh = RefreshStatus.drag;
-      setState(() {
-        
-      });
+    var dragOff;
+    if(offset > 0 && offset < _controller.position.maxScrollExtent){
+      return;
     }
+    if(offset <= 0){
+      dragOff = offset.abs();
+      _refresh = RefreshStatus.pullDown;
+    }
+    else{
+      dragOff = offset-_controller.position.maxScrollExtent;
+      _refresh = RefreshStatus.pullUp;
+    }
+    if(dragOff > _criticalPos && dragOff < 100){
+      rotate = (dragOff - _criticalPos)/20* math.pi;
+    }
+    else if(dragOff < _criticalPos){
+      rotate = 0;
+    }
+    else{
+      rotate = math.pi;
+    }
+    _refresh = RefreshStatus.pullDown;
+    setState(() {
+      
+    });
   }
 
-  Widget widgetHeader(RefreshStatus status){
+  Widget widget_refresh(RefreshStatus status){
     String img;
     String prompt;
     Widget widImg;
 
+    var offset = _controller.offset;
+    var dragOff;
+    if(offset <= 0){
+      dragOff = offset.abs();
+    }
+    else{
+      dragOff = offset - _controller.position.maxScrollExtent;
+    }
     switch(status){
       case RefreshStatus.refresh:{
         prompt = '正在刷新，请稍候';
@@ -231,16 +278,25 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       case RefreshStatus.back:
       case RefreshStatus.none:{
         img = 'asserts/dropDown.png';
-        prompt = '下拉刷新';
+        prompt = offset<=0?'下拉刷新':'上拉刷新';
 
         widImg = Transform.rotate(
             angle: rotate,
             child:
           Image.asset(img,width: 24,height: 24));
       }break;
-      case RefreshStatus.drag:{
+      case RefreshStatus.pullDown:{
         img = 'asserts/dropDown.png';
-        prompt = _controller.offset>_criticalPos?'下拉刷新':'松开刷新';
+        prompt = dragOff<_criticalPos?'下拉刷新':'松开刷新';
+
+        widImg = Transform.rotate(
+            angle: rotate,
+            child:
+          Image.asset(img,width: 24,height: 24));
+      }break;
+      case RefreshStatus.pullUp:{
+        img = 'asserts/dropUp.png';
+        prompt = dragOff>_criticalPos?'松开刷新':'上拉刷新';
 
         widImg = Transform.rotate(
             angle: rotate,
@@ -277,23 +333,19 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
   final GlobalKey _key = new GlobalKey();
 
-  double getHeaderHeight(){
-    if(_refresh == RefreshStatus.drag||_refresh == RefreshStatus.refresh){
-      if(_controller.offset < 0){
-      return -_controller.offset;
-      }
-      else{
-        return _controller.offset;
-      }
+  //刷新控件的高度
+  double height_refresh(){
+    if(_refresh == RefreshStatus.pullDown){
+      return _controller.offset.abs();
     }
-    else if(_refresh == RefreshStatus.done){
-      if(_refreshOffset<0){
-        return -_refreshOffset;
-      }
-      return _refreshOffset;
+    else if(_refresh == RefreshStatus.pullUp){
+      return _controller.offset - _controller.position.maxScrollExtent;
+    }
+    else if(_refresh == RefreshStatus.refresh || _refresh == RefreshStatus.done){
+      return _criticalPos;
     }
     else if(_refresh == RefreshStatus.back){
-      return -_animat.value;
+      return _animat.value.abs();
     }
     else{
       return 0;
@@ -309,66 +361,28 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
   Widget header(){
     return Container(
-      height:getHeaderHeight(), 
+      height:height_refresh(), 
       width: MediaQuery.of(context).size.width,
       child:FittedBox(
         fit:BoxFit.none,
         alignment: Alignment.bottomCenter,
         child:
-       widgetHeader(_refresh),
+       widget_refresh(_refresh),
     )
     );
   }
 
   Widget footer(){
-   return _isRequestData==true?
-   noMoreData==false?
-              Container(
-          color: Colors.transparent,
-          child:  Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Padding(
-                padding: EdgeInsets.only(right: 10),
-                child:
-                Container(
-                  width: 24,
-                  height: 24,
-                  child:
-              CircularProgressIndicator(
-                valueColor:new AlwaysStoppedAnimation<Color>(Colors.black),
-                strokeWidth:3,
-              ))),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                Text('正在刷新，请稍候'),
-                Text(
-                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
-                )
-              ],)
-            ],
-          ),
-        ):
-        Container(
-          color: Colors.transparent,
-          child:  Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                Text('没有更多数据了'),
-                Text(
-                  Utils.dateTimeToString(promptTime,'yyyy-MM-dd HH:mm')
-                )
-              ],)
-            ],
-          ),
-        )
-        :Container();
+    return Container(
+      height:height_refresh(), 
+      width: MediaQuery.of(context).size.width,
+      child:FittedBox(
+        fit:BoxFit.none,
+        alignment: Alignment.bottomCenter,
+        child:
+       widget_refresh(_refresh),
+    )
+    );
   }
 
   Widget getWid(){
