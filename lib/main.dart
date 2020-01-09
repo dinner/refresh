@@ -56,6 +56,10 @@ enum RefreshStatus{
   back
 }
 
+enum RefreshMode{
+  none,pull,push
+}
+
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   int _counter                  = 20;
   int maxCount                  = 20;           //最大数
@@ -72,6 +76,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   double _refreshOffset;                        //偏移offset记录
   double rotate;
 
+  RefreshMode mode = RefreshMode.none;
+
   @override
   void initState(){
     super.initState();
@@ -79,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       print(_controller.offset);
       if(_controller.position.pixels == 
         _controller.position.maxScrollExtent){//下滑到最底部
-          loadData();
+          // loadData();
         }
     });
 
@@ -127,7 +133,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
   //滑动手指抬起
   void onPointUp(PointerUpEvent event)async{
-    print('onPointUp');
+    // print('onPointUp');
     var offset = _controller.offset;
     var dragOff;
     if(offset > 0 && offset < _controller.position.maxScrollExtent){
@@ -140,7 +146,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       dragOff = offset-_controller.position.maxScrollExtent;
     }
       if(dragOff > _criticalPos){//启动动画
-        _controller.jumpTo(offset<0?-_criticalPos:_criticalPos);
+        _controller.jumpTo(offset<0?-_criticalPos:_controller.position.maxScrollExtent+_criticalPos);
         _refresh = RefreshStatus.refresh;
         setState(() {
           physics = NeverScrollableScrollPhysics();
@@ -218,18 +224,21 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   }
   //手指移动
   void onPointMove(PointerMoveEvent event){
-    print('onPointMove');
+    // print('onPointMove');
     var offset = _controller.offset;
     var dragOff;
     if(offset > 0 && offset < _controller.position.maxScrollExtent){
+      mode = RefreshMode.none;
       return;
     }
     if(offset <= 0){
       dragOff = offset.abs();
+      mode = RefreshMode.push;
       _refresh = RefreshStatus.pullDown;
     }
     else{
       dragOff = offset-_controller.position.maxScrollExtent;
+      mode = RefreshMode.pull;
       _refresh = RefreshStatus.pullUp;
     }
     if(dragOff > _criticalPos && dragOff < 100){
@@ -241,7 +250,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     else{
       rotate = math.pi;
     }
-    _refresh = RefreshStatus.pullDown;
     setState(() {
       
     });
@@ -334,34 +342,63 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   final GlobalKey _key = new GlobalKey();
 
   //刷新控件的高度
-  double height_refresh(){
-    if(_refresh == RefreshStatus.pullDown){
-      return _controller.offset.abs();
-    }
-    else if(_refresh == RefreshStatus.pullUp){
-      return _controller.offset - _controller.position.maxScrollExtent;
-    }
-    else if(_refresh == RefreshStatus.refresh || _refresh == RefreshStatus.done){
-      return _criticalPos;
-    }
-    else if(_refresh == RefreshStatus.back){
-      return _animat.value.abs();
+  double height_headerRefresh(){
+    if(mode == RefreshMode.none || mode == RefreshMode.pull){
+      return 0;
     }
     else{
-      return 0;
+      if(_refresh == RefreshStatus.pullDown){
+        return _controller.offset.abs();
+      }
+      else if(_refresh == RefreshStatus.pullUp){
+        return 0;
+      }
+      else if(_refresh == RefreshStatus.refresh || _refresh == RefreshStatus.done){
+        return _criticalPos;
+      }
+      else if(_refresh == RefreshStatus.back){
+        return _animat.value.abs();
+      }
+      else{
+        return 0;
+      }
     }
   }
 
-  Widget item(){
-     return ListTile(
-        title: Text('我是标题'),
-        subtitle: Text('我是子标题'),
-      );
+  double height_footerRefresh(){
+    if(mode == RefreshMode.none || mode == RefreshMode.push){
+      return 0;
+    }
+    else{
+      if(_refresh == RefreshStatus.pullDown){
+        return 0;
+      }
+      else if(_refresh == RefreshStatus.pullUp){
+        return _controller.offset - _controller.position.maxScrollExtent;
+      }
+      else if(_refresh == RefreshStatus.refresh || _refresh == RefreshStatus.done){
+        return _criticalPos;
+      }
+      else if(_refresh == RefreshStatus.back){
+        return _animat.value.abs();
+      }
+      else{
+        return 0;
+      }
+    }
+  }
+
+
+  Widget item(int index){
+    return ListTile(
+       title: Text('我是标题 $index'),
+       subtitle: Text('我是子标题'),
+     );
   }
 
   Widget header(){
     return Container(
-      height:height_refresh(), 
+      height:height_headerRefresh(), 
       width: MediaQuery.of(context).size.width,
       child:FittedBox(
         fit:BoxFit.none,
@@ -374,7 +411,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
   Widget footer(){
     return Container(
-      height:height_refresh(), 
+      height:height_footerRefresh(), 
       width: MediaQuery.of(context).size.width,
       child:FittedBox(
         fit:BoxFit.none,
@@ -412,19 +449,19 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (cont,index){
-              return item();
+              return item(index);
             }
             ,childCount:_counter 
           ),
         ),
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (count,index){
-              return footer();
-            }
-            ,childCount: 1
-          ),
-        )
+        // SliverList(
+        //   delegate: SliverChildBuilderDelegate(
+        //     (count,index){
+        //       return footer();
+        //     }
+        //     ,childCount: 1
+        //   ),
+        // )
       ],
     )));
   }
