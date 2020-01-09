@@ -57,7 +57,7 @@ enum RefreshStatus{
 }
 
 enum RefreshMode{
-  none,pull,push
+  none,pullDown,pullUp
 }
 
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
@@ -77,6 +77,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   double rotate;
 
   RefreshMode mode = RefreshMode.none;
+  double maxScrollExtent = 644.0;
 
   @override
   void initState(){
@@ -136,87 +137,88 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     // print('onPointUp');
     var offset = _controller.offset;
     var dragOff;
-    if(offset > 0 && offset < _controller.position.maxScrollExtent){
+    if(offset > 0 && offset < maxScrollExtent){
       return;
     }
     if(offset <= 0){
       dragOff = offset.abs();
     }
     else{
-      dragOff = offset-_controller.position.maxScrollExtent;
+      dragOff = offset-maxScrollExtent;
     }
-      if(dragOff > _criticalPos){//启动动画
-        _controller.jumpTo(offset<0?-_criticalPos:_controller.position.maxScrollExtent+_criticalPos);
-        _refresh = RefreshStatus.refresh;
+    if(dragOff > _criticalPos){//启动动画
+      _controller.jumpTo(offset<0?-_criticalPos:maxScrollExtent+_criticalPos);
+      _refresh = RefreshStatus.refresh;
+      setState(() {
+        physics = NeverScrollableScrollPhysics();
+      });
+     await refreshData(()async{
+        print('刷新完成');
+        _refreshOffset = _criticalPos;
+        _refresh = RefreshStatus.done;
         setState(() {
-          physics = NeverScrollableScrollPhysics();
         });
-       await refreshData(()async{
-          print('刷新完成');
-          _refreshOffset = _criticalPos;
-          _refresh = RefreshStatus.done;
-          setState(() {
-            
-          });
 
-        double begin,end;
-        if(offset < 0){
-          begin = -_criticalPos;
-          end = 0;
-        }
-        else{
-          begin = dragOff+_controller.position.maxScrollExtent;
-          end = _controller.position.maxScrollExtent;
-        }
-          await Future.delayed(Duration(seconds:1),(){
-            _refresh = RefreshStatus.back;
-            _animat = Tween<double>(begin: begin,end:end).animate(_animateControl)
-          ..addListener((){
-            setState(() {
-              
-            });
-          })
-          ..addStatusListener((status){
-            if(status == AnimationStatus.completed){
-              setState(() {
-                _refresh = RefreshStatus.none;
-              physics = AlwaysScrollableScrollPhysics();
-              _animateControl.reset();
-              });
-            }
-          });
-          _animateControl.forward();
-          });
-       });
+      double begin,end;
+      if(offset < 0){
+        begin = -_criticalPos;
+        end = 0;
       }
       else{
-        double begin,end;
-        if(offset < 0){
-          begin = offset;
-          end = 0;
-        }
-        else{
-          begin = dragOff+_controller.position.maxScrollExtent;
-          end = _controller.position.maxScrollExtent;
-        }
-            _refresh = RefreshStatus.back;
-            _animat = Tween<double>(begin: begin,end:end).animate(_animateControl)
-          ..addListener((){
-            setState(() {
-              
-            });
-          })
-          ..addStatusListener((status){
-            if(status == AnimationStatus.completed){
-              setState(() {
-                _refresh = RefreshStatus.none;
-              physics = AlwaysScrollableScrollPhysics();
-              _animateControl.reset();
-              });
-            }
-          });
-          _animateControl.forward();
+        begin = dragOff;
+        end = 0;
       }
+      await Future.delayed(Duration(seconds:1),(){
+        _refresh = RefreshStatus.back;
+        _animat = Tween<double>(begin: begin,end:end).animate(_animateControl)
+      ..addListener((){
+        setState(() {
+          
+        });
+      })
+      ..addStatusListener((status){
+        if(status == AnimationStatus.completed){
+          setState(() {
+            _refresh = RefreshStatus.none;
+            mode = RefreshMode.none;
+            physics = AlwaysScrollableScrollPhysics();
+            _animateControl.reset();
+          });
+        }
+      });
+        _animateControl.forward();
+      });
+     });
+    }
+    else{
+      double begin,end;
+      if(offset < 0){
+        begin = offset;
+        end = 0;
+      }
+      else{
+        begin = dragOff;
+        end = 0;
+      }
+      _refresh = RefreshStatus.back;
+      _animat = Tween<double>(begin: begin,end:end).animate(_animateControl)
+      ..addListener((){
+        setState(() {
+          
+        });
+      })
+      ..addStatusListener((status){
+        if(status == AnimationStatus.completed){
+          setState(() {
+            _refresh = RefreshStatus.none;
+            mode = RefreshMode.none;
+            physics = AlwaysScrollableScrollPhysics();
+            _animateControl.reset();
+          });
+        }
+      });
+      _animateControl.forward();
+    }
   }
   //手指按下
   void onPointDown(PointerDownEvent event){
@@ -227,18 +229,17 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
     // print('onPointMove');
     var offset = _controller.offset;
     var dragOff;
-    if(offset > 0 && offset < _controller.position.maxScrollExtent){
+    if(offset > 0 && offset < maxScrollExtent){
       mode = RefreshMode.none;
-      return;
     }
-    if(offset <= 0){
+    else if(offset <= 0){
       dragOff = offset.abs();
-      mode = RefreshMode.push;
+      mode = RefreshMode.pullDown;
       _refresh = RefreshStatus.pullDown;
     }
     else{
-      dragOff = offset-_controller.position.maxScrollExtent;
-      mode = RefreshMode.pull;
+      dragOff = offset-maxScrollExtent;
+      mode = RefreshMode.pullUp;
       _refresh = RefreshStatus.pullUp;
     }
     if(dragOff > _criticalPos && dragOff < 100){
@@ -266,7 +267,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
       dragOff = offset.abs();
     }
     else{
-      dragOff = offset - _controller.position.maxScrollExtent;
+      dragOff = offset - maxScrollExtent;
     }
     switch(status){
       case RefreshStatus.refresh:{
@@ -343,7 +344,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
   //刷新控件的高度
   double height_headerRefresh(){
-    if(mode == RefreshMode.none || mode == RefreshMode.pull){
+    if(mode == RefreshMode.none || mode == RefreshMode.pullUp){
       return 0;
     }
     else{
@@ -366,7 +367,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   }
 
   double height_footerRefresh(){
-    if(mode == RefreshMode.none || mode == RefreshMode.push){
+    if(mode == RefreshMode.none || mode == RefreshMode.pullDown){
       return 0;
     }
     else{
@@ -374,7 +375,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
         return 0;
       }
       else if(_refresh == RefreshStatus.pullUp){
-        return _controller.offset - _controller.position.maxScrollExtent;
+        // print('_controller.position.maxScrollExtent:${_controller.position.maxScrollExtent}');
+        return _controller.offset - maxScrollExtent;
       }
       else if(_refresh == RefreshStatus.refresh || _refresh == RefreshStatus.done){
         return _criticalPos;
@@ -411,11 +413,12 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
 
   Widget footer(){
     return Container(
+      // color: Colors.red,
       height:height_footerRefresh(), 
       width: MediaQuery.of(context).size.width,
       child:FittedBox(
         fit:BoxFit.none,
-        alignment: Alignment.bottomCenter,
+        alignment: Alignment.topCenter,
         child:
        widget_refresh(_refresh),
     )
@@ -454,14 +457,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
             ,childCount:_counter 
           ),
         ),
-        // SliverList(
-        //   delegate: SliverChildBuilderDelegate(
-        //     (count,index){
-        //       return footer();
-        //     }
-        //     ,childCount: 1
-        //   ),
-        // )
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (count,index){
+              return footer();
+            }
+            ,childCount: 1
+          ),
+        )
       ],
     )));
   }
