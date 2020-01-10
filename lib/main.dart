@@ -77,7 +77,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   double rotate;
 
   RefreshMode mode = RefreshMode.none;
-  double maxScrollExtent = 644.0;
+  double maxScrollExtent = 0.0;
 
   @override
   void initState(){
@@ -223,16 +223,21 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin{
   //手指按下
   void onPointDown(PointerDownEvent event){
     promptTime = DateTime.now();
+    maxScrollExtent = _controller.position.maxScrollExtent;
   }
   //手指移动
   void onPointMove(PointerMoveEvent event){
     // print('onPointMove');
     var offset = _controller.offset;
     var dragOff;
-    if(offset > 0 && offset < maxScrollExtent){
+    if(offset >= 0 && offset < maxScrollExtent){
       mode = RefreshMode.none;
+      setState(() {
+      
+      });
+      return;
     }
-    else if(offset <= 0){
+    if(offset < 0){
       dragOff = offset.abs();
       mode = RefreshMode.pullDown;
       _refresh = RefreshStatus.pullDown;
